@@ -1,10 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strconv"
+	"unicode"
+	"unicode/utf8"
 )
 
 var nextLevel int
@@ -192,6 +197,47 @@ func encode(buf *bytes.Buffer, v reflect.Value) error {
 	return nil
 }
 
-func Unmarshal(data []byte, out any) (err error) {
+func main() {
+	counts, utflen, invalid, err := charcount(os.Stdin)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
 
+	fmt.Printf("rune\tcount\n")
+	for c, n := range counts {
+		fmt.Printf("%q\t%d\n", c, n)
+	}
+	fmt.Print("\nlen\tcount\n")
+	for i, n := range utflen {
+		if i > 0 {
+			fmt.Printf("%d\t%d\n", i, n)
+		}
+	}
+	if invalid > 0 {
+		fmt.Printf("\n%d invalid UTF-8 characters\n", invalid)
+	}
+}
+
+func charcount(r io.Reader) (map[rune]int, []int, int, error) {
+	counts := make(map[rune]int)
+	var utflen [utf8.UTFMax + 1]int
+	invalid := 0
+
+	in := bufio.NewReader(r)
+	for {
+		r, n, err := in.ReadRune()
+		if err == io.EOF {
+			return counts, utflen[:], invalid, nil
+		}
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		if r == unicode.ReplacementChar && n == 1 {
+			invalid++
+			continue
+		}
+		counts[r]++
+		utflen[n]++
+	}
 }
